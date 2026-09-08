@@ -39,6 +39,7 @@ jobs:
         id: params
         run: |
           set -euo pipefail
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
             IMAGE="${{ github.event.inputs.image }}"
@@ -48,13 +49,38 @@ jobs:
               echo "::error::FIRMWARE_VERSION file not found. Create one at repo root containing e.g. '22.5.0', or run this workflow manually with a version input."
               exit 1
             fi
-            VERSION="$(cat FIRMWARE_VERSION | tr -d '[:space:]')"
-            IMAGE="all"
+
+            VERSION="$(tr -d '[:space:]' < FIRMWARE_VERSION)"
+
+            # Determine which bootlogos changed in this push.
+            IMAGE_LIST="$(git diff --name-only \
+              "${{ github.event.before }}" \
+              "${{ github.sha }}" \
+              -- 'bootlogos/*.png' \
+              | sed 's#^bootlogos/##; s#\.png$##')"
+
+            if [ -z "$IMAGE_LIST" ]; then
+              echo "::error::No changed PNG files found in bootlogos/"
+              exit 1
+            fi
+
+            IMAGE="changed"
             NOTE="Auto-triggered by push to bootlogos/"
           fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "note=${NOTE}" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "files=" >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "files<<EOF"
+              printf '%s\n' "$IMAGE_LIST"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
       - name: Resolve requested image(s)
         id: images
         env:
