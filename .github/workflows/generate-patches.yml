@@ -87,30 +87,59 @@ jobs:
         id: images
         env:
           IMAGE: ${{ steps.params.outputs.image }}
+          CHANGED_FILES: ${{ steps.params.outputs.files }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
+
           if [ ! -d "bootlogos" ]; then
             echo "::error::bootlogos/ directory not found in repo"
             exit 1
           fi
 
-          if [ -z "$IMAGE" ] || [ "$IMAGE" = "all" ]; then
-            shopt -s nullglob
-            files=(bootlogos/*.png)
+          if [ "$EVENT_NAME" = "push" ]; then
+            # Push-triggered runs: use only files changed by this push.
+            files=()
+
+            while IFS= read -r file; do
+              [ -z "$file" ] && continue
+
+              # Ignore deleted PNGs; there is nothing to generate a patch from.
+              if [ -f "$file" ]; then
+                files+=("$file")
+              else
+                echo "Skipping deleted file: $file"
+              fi
+            done <<< "$CHANGED_FILES"
+
             if [ ${#files[@]} -eq 0 ]; then
-              echo "::error::No .png files found in bootlogos/"
+              echo "::error::No existing changed PNG files found"
               exit 1
             fi
+
           else
-            candidate="bootlogos/${IMAGE}.png"
-            if [ ! -f "$candidate" ]; then
-              echo "::error::Requested image '${IMAGE}' not found at ${candidate}"
-              exit 1
+            # Manual workflow_dispatch.
+            if [ -z "$IMAGE" ] || [ "$IMAGE" = "all" ]; then
+              shopt -s nullglob
+              files=(bootlogos/*.png)
+
+              if [ ${#files[@]} -eq 0 ]; then
+                echo "::error::No .png files found in bootlogos/"
+                exit 1
+              fi
+
+            else
+              candidate="bootlogos/${IMAGE}.png"
+
+              if [ ! -f "$candidate" ]; then
+                echo "::error::Requested image '${IMAGE}' not found at ${candidate}"
+                exit 1
+              fi
+
+              files=("$candidate")
             fi
-            files=("$candidate")
           fi
 
-          # Pass the resolved file list to the next step as a newline-delimited list
           {
             echo "list<<EOF"
             printf '%s\n' "${files[@]}"
