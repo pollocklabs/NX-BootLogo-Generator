@@ -58,7 +58,7 @@ jobs:
             IMAGE_LIST="$(git diff --name-only \
               "${{ github.event.before }}" \
               "${{ github.sha }}" \
-              -- 'bootlogos/*.png' \
+              -- 'bootlogos/*.png')"
 
             if [ -z "$IMAGE_LIST" ]; then
               echo "::error::No changed PNG files found in bootlogos/"
