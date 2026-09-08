@@ -101,7 +101,7 @@ jobs:
             rm -rf "build/${name}"
             mkdir -p "build/${name}/atmosphere/exefs_patches/Splash"
             python scripts/gen_patches.py \
-              -o scripts/BootLogo.png \
+              -o BootLogo.png \
               "build/${name}/atmosphere/exefs_patches/Splash" \
               "$img"
             # overwrite if it already exists for this version
