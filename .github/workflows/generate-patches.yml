@@ -37,6 +37,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install 7-Zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y 7zip
       - name: Resolve run parameters
         id: params
         run: |
@@ -161,8 +165,20 @@ jobs:
               "build/${name}/atmosphere/exefs_patches/Splash" \
               "$img"
             # overwrite if it already exists for this version
-            rm -f "patches/${VERSION}/${name}.zip"
-            ( cd "build/${name}" && zip -r "../../patches/${VERSION}/${name}.zip" atmosphere )
+            rm -f "patches/${VERSION}/${name}.7z"
+            ( 
+              cd "build/${name}"
+              
+              7z a \
+                -t7z \
+                -m0=lzma2 \
+                -mx=9
+                -mfb=273 \
+                -md=64m \
+                -ms=on \
+                "../../patches/${VERSION}/${name}.7z" \
+                atmosphere
+            )
           done <<< "$FILES"
       - name: Open PR with generated patches
         id: cpr
@@ -179,7 +195,7 @@ jobs:
             Merging this PR adds/updates `patches/${{ steps.params.outputs.version }}/`.
             Every other version folder is left untouched.
           add-paths: |
-            patches/${{ steps.params.outputs.version }}/*.zip
+            patches/${{ steps.params.outputs.version }}/*.7z
           delete-branch: true
       - name: Approve and enable auto-merge (as a separate bot identity)
         if: steps.cpr.outputs.pull-request-number
